@@ -16,6 +16,7 @@ public class PlayerMovement : MonoBehaviour
     public GameObject InputDirectionCompass;
     private float verticalVelocity;
     private Vector3 moveVector;
+    private bool isInAir = false;
 
     // Start is called before the first frame update
     void Start()
@@ -54,11 +55,19 @@ public class PlayerMovement : MonoBehaviour
         bool crouching = Input.GetButton("Crouching");
         animator.SetBool("isCrouching", crouching);
 
-        bool jumping = Input.GetButton("Jump");
-        if (jumping)
-            animator.SetBool("isJumping", jumping);
+        animator.SetBool("isGrounded", controller.isGrounded);
+
+        if (controller.isGrounded && !isInAir)
+        {
+            bool jumping = Input.GetButton("Jump");
+            if (jumping)
+            {
+                animator.SetBool("isJumping", jumping);
+                isInAir = true;
+            }
+        }
         else
-            animator.SetBool("isJumping", false);
+            isInAir &= !controller.isGrounded;
 
         Vector3 targetDirection = InputDirectionCompass.transform.InverseTransformPoint(desiredMoveDirection);
         Angle2Target = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
