@@ -55,6 +55,9 @@ public class PlayerMovement : MonoBehaviour
         bool crouching = Input.GetButton("Crouching");
         animator.SetBool("isCrouching", crouching);
 
+        bool punching = Input.GetButton("Fire1");
+        animator.SetBool("isPunching", punching);
+
         animator.SetBool("isGrounded", controller.isGrounded);
 
         if (controller.isGrounded && !isInAir)
