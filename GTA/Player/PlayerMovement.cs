@@ -21,6 +21,9 @@ public class PlayerMovement : MonoBehaviour
     private bool isPistolArmed = false;
     private bool isRifleArmed = false;
 
+    public GameObject pistolOBJ;
+    public GameObject rifleOBJ;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -103,16 +106,26 @@ public class PlayerMovement : MonoBehaviour
         {
             isPistolArmed = !isPistolArmed;
             animator.SetBool("isPistolArmed", isPistolArmed);
+            pistolOBJ.SetActive(true);
             isRifleArmed = false;
             animator.SetBool("isRifleArmed", isRifleArmed);
+            rifleOBJ.SetActive(false);
         }
 
         if (Input.GetButton("ArmRifle"))
         {
             isRifleArmed = !isRifleArmed;
             animator.SetBool("isRifleArmed", isRifleArmed);
+            rifleOBJ.SetActive(true);
             isPistolArmed = false;
             animator.SetBool("isPistolArmed", isPistolArmed);
+            pistolOBJ.SetActive(false);
         }
+
+        if (!isPistolArmed)
+            pistolOBJ.SetActive(false);
+
+        if (!isRifleArmed)
+            rifleOBJ.SetActive(false);
     }
 }
