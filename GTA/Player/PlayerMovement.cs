@@ -116,16 +116,29 @@ public class PlayerMovement : MonoBehaviour
         {
             isRifleArmed = !isRifleArmed;
             animator.SetBool("isRifleArmed", isRifleArmed);
-            rifleOBJ.SetActive(true);
             isPistolArmed = false;
             animator.SetBool("isPistolArmed", isPistolArmed);
             pistolOBJ.SetActive(false);
         }
 
-        if (!isPistolArmed)
-            pistolOBJ.SetActive(false);
+        if (Input.GetMouseButton(1))
+            animator.SetBool("isAiming", true);
+        else
+            animator.SetBool("isAiming", false);
+    }
 
-        if (!isRifleArmed)
-            rifleOBJ.SetActive(false);
+    public void GrabRifle()
+    {
+        rifleOBJ.SetActive(true);
+    }
+
+    public void PutRifleAway()
+    {
+        rifleOBJ.SetActive(false);
+    }
+
+    public void PutPistolAway()
+    {
+        pistolOBJ.SetActive(false);
     }
 }
