@@ -4,10 +4,11 @@ using UnityEngine;
 
 public class SirenEffect : MonoBehaviour
 {
-	public Light leftLight, leftLight1;
-	public Light rightLight, rightLight1;
+	public Light leftLight;
+	public Light rightLight;
 	public int speed;
 	public AudioSource siren;
+    public bool isSirenOn = false;
 
 	private Vector3 leftTemp;
 	private Vector3 rightTemp;
@@ -15,10 +16,18 @@ public class SirenEffect : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-		leftTemp.y += speed * Time.deltaTime;
-		rightTemp.y -= speed * Time.deltaTime;
+        if (isSirenOn)
+        {
+            leftLight.enabled = rightLight.enabled = true;
+            leftTemp.y += speed * Time.deltaTime;
+            rightTemp.y -= speed * Time.deltaTime;
 
-		leftLight.transform.eulerAngles = leftLight1.transform.eulerAngles = leftTemp;
-		rightLight.transform.eulerAngles = rightLight1.transform.eulerAngles = rightTemp;
+            leftLight.transform.eulerAngles = leftTemp;
+            rightLight.transform.eulerAngles = rightTemp;
+        }
+        else
+        {
+            leftLight.enabled = rightLight.enabled = false;
+        }
     }
 }
