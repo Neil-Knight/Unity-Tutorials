@@ -11,7 +11,7 @@ public class PlayerMovement : MonoBehaviour
     public float desiredRotationSpeed;
     public Animator animator;
     public Camera camera;
-    public bool isGrounded = false;
+    public bool isGrounded = true;
     public CharacterController controller;
     public float Angle2Target;
     public GameObject InputDirectionCompass;
@@ -20,6 +20,7 @@ public class PlayerMovement : MonoBehaviour
     private bool isInAir = false;
     private bool isPistolArmed = false;
     private bool isRifleArmed = false;
+    private float distanceToGround;
 
     public GameObject pistolOBJ;
     public GameObject rifleOBJ;
@@ -36,6 +37,7 @@ public class PlayerMovement : MonoBehaviour
     void Update()
     {
         InputMagnitude();
+        CheckGrounding();
     }
 
     void FixedUpdate()
@@ -86,10 +88,9 @@ public class PlayerMovement : MonoBehaviour
         bool punching = Input.GetButton("Fire1");
         animator.SetBool("isPunching", punching);
 
-        isGrounded = controller.isGrounded;
-        animator.SetBool("isGrounded", controller.isGrounded);
+        animator.SetBool("isGrounded", isGrounded);
 
-        if (controller.isGrounded && !isInAir)
+        if (isGrounded && !isInAir)
         {
             bool jumping = Input.GetButton("Jump");
             if (jumping)
@@ -100,7 +101,7 @@ public class PlayerMovement : MonoBehaviour
             }
         }
         else
-            isInAir &= !controller.isGrounded;
+            isInAir &= !isGrounded;
 
         if (Input.GetButton("ArmPistol"))
         {
@@ -127,6 +128,20 @@ public class PlayerMovement : MonoBehaviour
             animator.SetBool("isAiming", false);
     }
 
+    void CheckGrounding()
+    {
+        if (isGrounded)
+            distanceToGround = 0.1f;
+        else
+            distanceToGround = 0.35f;
+
+        if (Physics.CheckCapsule(transform.position, Vector3.down, distanceToGround, 1 << LayerMask.NameToLayer("Ground")))
+            isGrounded = true;
+        else
+            isGrounded = false;
+    }
+
+    #region Animation Events
     public void GrabRifle()
     {
         rifleOBJ.SetActive(true);
@@ -141,4 +156,5 @@ public class PlayerMovement : MonoBehaviour
     {
         pistolOBJ.SetActive(false);
     }
+    #endregion
 }
