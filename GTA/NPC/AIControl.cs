@@ -3,35 +3,61 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
+[RequireComponent(typeof(NavMeshAgent))]
 public class AIControl : MonoBehaviour
 {
-    public GameObject[] goalLocations;
-    public Animator animator;
-    public NavMeshAgent agent;
+    public Path waypointNetwork;
+    public int currentIndex = 0;
+    public bool hasPath = false;
+    public bool pathPending = false;
+    public bool pathStale = false;
+    public bool pathState = false;
+    public NavMeshPathStatus pathStatus = NavMeshPathStatus.PathInvalid;
 
-    // Start is called before the first frame update
-    void Start()
+    private NavMeshAgent agent;
+
+    private void Start()
     {
-        agent = this.GetComponent<NavMeshAgent>();
-        animator = this.GetComponent<Animator>();
-        goalLocations = GameObject.FindGameObjectsWithTag("NPC Goal");
-        AssignSteeringSpeed();
-        agent.SetDestination(goalLocations[Random.Range(0, goalLocations.Length)].transform.position);
-        animator.SetFloat("walkingOffset", Random.Range(0, 1));
-        animator.SetTrigger("isWalking");
+        agent = GetComponent<NavMeshAgent>();
+        if (waypointNetwork == null)
+            return;
+
+        SetNextDestination(false);
     }
 
-    public void AssignSteeringSpeed()
+    void SetNextDestination(bool increment)
     {
-        float speedMultiplier = Random.Range(1, 1.5f);
-        animator.SetFloat("speedMultiplier", speedMultiplier);
-        agent.speed *= speedMultiplier;
+        if (!waypointNetwork)
+            return;
+
+        int incrementStep = increment ? 1 : 0;
+        Transform nextWaypointTransform;
+
+        int nextWaypoint = (currentIndex + incrementStep >= waypointNetwork.nodes.Count) ? 0 : currentIndex + incrementStep;
+        nextWaypointTransform = waypointNetwork.nodes[nextWaypoint];
+
+        if (nextWaypointTransform != null)
+        {
+            currentIndex = nextWaypoint;
+            agent.destination = nextWaypointTransform.position;
+            return;
+        }
+
+        currentIndex = nextWaypoint;
     }
 
-    // Update is called once per frame
-    void Update()
+    private void Update()
     {
-        if (agent.remainingDistance < 1) // Close to the destination
-            agent.SetDestination(goalLocations[Random.Range(0, goalLocations.Length)].transform.position);
+        hasPath = agent.hasPath;
+        pathPending = agent.pathPending;
+        pathStale = agent.isPathStale;
+        pathStatus = agent.pathStatus;
+
+        if ((agent.remainingDistance <= agent.stoppingDistance && !pathPending) || pathStatus == NavMeshPathStatus.PathInvalid)
+        {
+            SetNextDestination(true);
+        }
+        else if (agent.isPathStale)
+            SetNextDestination(false);
     }
 }
