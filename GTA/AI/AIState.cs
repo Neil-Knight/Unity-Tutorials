@@ -38,9 +38,20 @@ public abstract class AIState : MonoBehaviour
         pos = col.transform.position;
         pos.x += col.center.x * col.transform.lossyScale.x;
         pos.y += col.center.y * col.transform.lossyScale.y;
-        pos.y += col.center.z * col.transform.lossyScale.z;
+        pos.z += col.center.z * col.transform.lossyScale.z;
 
         radius = Mathf.Max(col.radius * col.transform.lossyScale.x, col.radius * col.transform.lossyScale.y);
         radius = Mathf.Max(radius, col.transform.lossyScale.z);
+    }
+
+    public static float FindSignedAngle(Vector3 fromVector, Vector3 toVector)
+    {
+        if (fromVector == toVector)
+            return 0f;
+
+        float angle = Vector3.Angle(fromVector, toVector);
+        Vector3 cross = Vector3.Cross(fromVector, toVector);
+        angle *= Mathf.Sign(cross.y);
+        return angle;
     }
 }
