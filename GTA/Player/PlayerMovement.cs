@@ -5,32 +5,59 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
-    public float InputX, InputZ;
-    public float Speed;
-    public Vector3 desiredMoveDirection;
-    public float desiredRotationSpeed;
-    public Animator animator;
-    public Camera camera;
-    public bool isGrounded = true;
-    public CharacterController controller;
-    public float Angle2Target;
-    public GameObject InputDirectionCompass;
-    private float verticalVelocity;
-    private Vector3 moveVector;
-    private bool isInAir = false;
-    private bool isPistolArmed = false;
-    private bool isRifleArmed = false;
-    private float distanceToGround;
+    
+    public float _speed;
+    public float _desiredRotationSpeed;
+    public GameObject _inputDirectionCompass;
+    public Camera _camera;
+    public bool _showSolverDebug = true;
+    Vector3 _desiredMoveDirection;
+    float _inputX;
+    float _inputZ;
+    Animator _animator;
+    bool _isGrounded = true;
+    CharacterController _controller;
+    float _angle2Target;
+    float _verticalVelocity;
+    Vector3 _moveVector;
+    bool _isInAir = false;
+    float _distanceToGround;
 
-    public GameObject pistolOBJ;
-    public GameObject rifleOBJ;
+    Vector3 _rightFootPosition;
+    Vector3 _leftFootPosition;
+    Vector3 _rightFootIKPosition;
+    Vector3 _leftFootIKPosition;
+    Quaternion _leftFootIKRotation;
+    Quaternion _rightFootIKRotation;
+    float _lastPelvisPositionY;
+    float _lastRightFootPositionY;
+    float _lastLeftFootPositionY;
+
+    [Header("Feet Grounder")]
+    public bool _enableFeetIK = true;
+    [Range(0,2)]
+    [SerializeField]
+    float _heightFromGroundRaycast = 1.14f;
+    [Range(0, 2)]
+    [SerializeField]
+    float _raycastDownDistance = 1.5f;
+    [SerializeField]
+    LayerMask _environmentLayer;
+    [SerializeField]
+    float _pelvisOffset;
+    [Range(0, 1)]
+    [SerializeField]
+    float _pelvisUpAndDownSpeed = 0.28f;
+    [Range(0, 1)]
+    [SerializeField]
+    float _feetToIKPositionSpeed = 0.5f;
+
 
     // Start is called before the first frame update
     void Start()
     {
-        animator = this.GetComponent<Animator>();
-        controller = this.GetComponent<CharacterController>();
-        camera = Camera.main;
+        _animator = this.GetComponent<Animator>();
+        _controller = this.GetComponent<CharacterController>();
     }
 
     // Update is called once per frame
@@ -42,19 +69,29 @@ public class PlayerMovement : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (!_enableFeetIK)
+            return;
+
+        // Feet grounding
+        AdjustFeetTarget(ref _rightFootPosition, HumanBodyBones.RightFoot);
+        AdjustFeetTarget(ref _leftFootPosition, HumanBodyBones.LeftFoot);
+        // Find and Raycast to the ground
+        FeetPositionSolver(_rightFootPosition, ref _rightFootIKPosition, ref _rightFootIKRotation);
+        FeetPositionSolver(_leftFootPosition, ref _leftFootIKPosition, ref _leftFootIKRotation);
+
         // Parent the Input Direction Compass to the Player
-        InputDirectionCompass.transform.position = this.transform.position;
-        InputDirectionCompass.transform.rotation = Quaternion.identity;
+        _inputDirectionCompass.transform.position = transform.position;
+        _inputDirectionCompass.transform.rotation = Quaternion.identity;
 
-        InputX = Input.GetAxis("Horizontal");
-        InputZ = Input.GetAxis("Vertical");
-        animator.SetFloat("InputZ", InputZ, 0f, Time.deltaTime);
-        animator.SetFloat("InputX", InputX, 0f, Time.deltaTime);
-        Speed = new Vector2(InputX, InputZ).sqrMagnitude;
-        animator.SetFloat("InputMagnitude", Speed, 0f, Time.deltaTime);
+        _inputX = Input.GetAxis("Horizontal");
+        _inputZ = Input.GetAxis("Vertical");
+        _animator.SetFloat("InputZ", _inputZ, 0f, Time.deltaTime);
+        _animator.SetFloat("InputX", _inputX, 0f, Time.deltaTime);
+        _speed = new Vector2(_inputX, _inputZ).sqrMagnitude;
+        _animator.SetFloat("InputMagnitude", _speed, 0f, Time.deltaTime);
 
-        Vector3 targetDirection = InputDirectionCompass.transform.InverseTransformPoint(desiredMoveDirection);
-        Angle2Target = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
+        Vector3 targetDirection = _inputDirectionCompass.transform.InverseTransformPoint(_desiredMoveDirection);
+        _angle2Target = Mathf.Atan2(targetDirection.x, targetDirection.z) * Mathf.Rad2Deg;
 
         var cam = Camera.main;
         var forward = cam.transform.forward;
@@ -63,98 +100,127 @@ public class PlayerMovement : MonoBehaviour
         right.y = 0;
         forward.Normalize();
         right.Normalize();
-        desiredMoveDirection = forward * InputZ + right * InputX;
-        desiredMoveDirection.y = 0f;
+        _desiredMoveDirection = forward * _inputZ + right * _inputX;
+        _desiredMoveDirection.y = 0f;
 
-        InputDirectionCompass.transform.Rotate(0, 0, Angle2Target);
-        InputDirectionCompass.transform.Translate(desiredMoveDirection);
+        _inputDirectionCompass.transform.Rotate(0, 0, _angle2Target);
+        _inputDirectionCompass.transform.Translate(_desiredMoveDirection);
 
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(desiredMoveDirection), desiredRotationSpeed * Time.deltaTime);
+        if (_desiredMoveDirection != Vector3.zero)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(_desiredMoveDirection), _desiredRotationSpeed * Time.deltaTime);
 
-        controller.Move(desiredMoveDirection * Time.deltaTime);
+        _controller.Move(_desiredMoveDirection * Time.deltaTime);
     }
 
-    void InputMagnitude() {
+    void InputMagnitude()
+    {
         bool running = Input.GetButton("Running");
-        animator.SetBool("isRunning", running);
-        if (running && Input.GetButtonDown("Sliding"))
-            animator.SetBool("isSliding", true);
-        else
-            animator.SetBool("isSliding", false);
+        _animator.SetBool("isRunning", running);
 
         bool crouching = Input.GetButton("Crouching");
-        animator.SetBool("isCrouching", crouching);
+        _animator.SetBool("isCrouching", crouching);
 
-        bool punching = Input.GetButton("Fire1");
-        animator.SetBool("isPunching", punching);
+        _animator.SetBool("isGrounded", _isGrounded);
 
-        animator.SetBool("isGrounded", isGrounded);
-
-        if (isGrounded && !isInAir)
+        if (_isGrounded && !_isInAir)
         {
             bool jumping = Input.GetButton("Jump");
             if (jumping)
             {
-                animator.SetBool("isJumping", jumping);
-                isInAir = true;
+                _animator.SetBool("isJumping", jumping);
+                _isInAir = true;
                 jumping = false;
             }
         }
         else
-            isInAir &= !isGrounded;
-
-        if (Input.GetButton("ArmPistol"))
-        {
-            isPistolArmed = !isPistolArmed;
-            animator.SetBool("isPistolArmed", isPistolArmed);
-            pistolOBJ.SetActive(true);
-            isRifleArmed = false;
-            animator.SetBool("isRifleArmed", isRifleArmed);
-            rifleOBJ.SetActive(false);
-        }
-
-        if (Input.GetButton("ArmRifle"))
-        {
-            isRifleArmed = !isRifleArmed;
-            animator.SetBool("isRifleArmed", isRifleArmed);
-            isPistolArmed = false;
-            animator.SetBool("isPistolArmed", isPistolArmed);
-            pistolOBJ.SetActive(false);
-        }
-
-        if (Input.GetMouseButton(1))
-            animator.SetBool("isAiming", true);
-        else
-            animator.SetBool("isAiming", false);
+            _isInAir &= !_isGrounded;
     }
 
     void CheckGrounding()
     {
-        if (isGrounded)
-            distanceToGround = 0.1f;
+        if (_isGrounded)
+            _distanceToGround = 0.1f;
         else
-            distanceToGround = 0.35f;
+            _distanceToGround = 0.35f;
 
-        if (Physics.CheckCapsule(transform.position, Vector3.down, distanceToGround, 1 << LayerMask.NameToLayer("Ground")))
-            isGrounded = true;
+        if (Physics.CheckCapsule(transform.position, Vector3.down, _distanceToGround, 1 << LayerMask.NameToLayer("Ground")))
+            _isGrounded = true;
         else
-            isGrounded = false;
+            _isGrounded = false;
     }
 
-    #region Animation Events
-    public void GrabRifle()
+    #region Feet Grounding
+    private void OnAnimatorIK(int layerIndex)
     {
-        rifleOBJ.SetActive(true);
+        if (!_enableFeetIK)
+            return;
+
+        MovePelvisHeight();
+        _animator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 1);
+        MoveFeetToIKPoint(AvatarIKGoal.RightFoot, _rightFootIKPosition, _rightFootIKRotation, ref _lastRightFootPositionY);
+        _animator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 1);
+        MoveFeetToIKPoint(AvatarIKGoal.LeftFoot, _leftFootIKPosition, _leftFootIKRotation, ref _lastLeftFootPositionY);
+    }
+    #endregion
+
+    #region Feet Grounding Methods
+    void MoveFeetToIKPoint(AvatarIKGoal foot, Vector3 positionIKHolder, Quaternion rotationIKHolder, ref float lastFootPositionY)
+    {
+        Vector3 targetIKPosition = _animator.GetIKPosition(foot);
+        if (positionIKHolder != Vector3.zero)
+        {
+            targetIKPosition = transform.InverseTransformPoint(targetIKPosition);
+            positionIKHolder = transform.InverseTransformPoint(positionIKHolder);
+            float y = Mathf.Lerp(lastFootPositionY, positionIKHolder.y, _feetToIKPositionSpeed);
+            targetIKPosition.y += y;
+            lastFootPositionY = y;
+            targetIKPosition = transform.TransformPoint(targetIKPosition);
+            _animator.SetIKRotation(foot, rotationIKHolder);
+        }
+
+        _animator.SetIKPosition(foot, targetIKPosition);
     }
 
-    public void PutRifleAway()
+    void MovePelvisHeight()
     {
-        rifleOBJ.SetActive(false);
+        if (_rightFootIKPosition == Vector3.zero || _leftFootIKPosition == Vector3.zero ||
+            _lastPelvisPositionY == 0)
+        {
+            _lastPelvisPositionY = _animator.bodyPosition.y;
+            return;
+        }
+
+        float leftOffsetPosition = _leftFootIKPosition.y - transform.position.y;
+        float rightOffsetPosition = _rightFootIKPosition.y - transform.position.y;
+        float totalOffset = (leftOffsetPosition < rightOffsetPosition) ? leftOffsetPosition : rightOffsetPosition;
+        Vector3 newPelvisPosition = _animator.bodyPosition + Vector3.up * totalOffset;
+        newPelvisPosition.y = Mathf.Lerp(_lastPelvisPositionY, newPelvisPosition.y, _pelvisUpAndDownSpeed);
+        _animator.bodyPosition = newPelvisPosition;
+        _lastPelvisPositionY = _animator.bodyPosition.y;
     }
 
-    public void PutPistolAway()
+    void FeetPositionSolver(Vector3 fromSkyPosition, ref Vector3 feetIKPositions, ref Quaternion feetIKRotations)
     {
-        pistolOBJ.SetActive(false);
+        // Raycast handling section
+        RaycastHit feetOutHit;
+        if (_showSolverDebug)
+            Debug.DrawLine(fromSkyPosition, fromSkyPosition + Vector3.down * (_raycastDownDistance + _heightFromGroundRaycast), Color.yellow);
+
+        if (Physics.Raycast(fromSkyPosition, Vector3.down, out feetOutHit, _raycastDownDistance + _heightFromGroundRaycast, _environmentLayer))
+        {
+            feetIKPositions = fromSkyPosition;
+            feetIKPositions.y = feetOutHit.point.y + _pelvisOffset;
+            feetIKRotations = Quaternion.FromToRotation(Vector3.up, feetOutHit.normal) * transform.rotation;
+            return;
+        }
+
+        feetIKPositions = Vector3.zero;
+    }
+
+    void AdjustFeetTarget(ref Vector3 feetPositions, HumanBodyBones foot)
+    {
+        feetPositions = _animator.GetBoneTransform(foot).position;
+        feetPositions.y = transform.position.y + _heightFromGroundRaycast;
     }
     #endregion
 }
